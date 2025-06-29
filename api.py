@@ -1,29 +1,34 @@
 from flask import Flask, request, jsonify
-from openai import OpenAI
+from google import generativeai as genai
 
-# إعداد الاتصال بـ OpenRouter
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key="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"
-)
+# إعداد مفتاح Gemini
+genai.configure(api_key="AIzaSyDmU2uz14prsUgfEALGqJM-y8xVzo8IpZU")  # ← ضع مفتاحك هنا
 
 app = Flask(__name__)
 
-@app.route("/analyze", methods=["POST"])
-def analyze_case():
+@app.route("/analyze-text", methods=["POST"])
+def analyze_text():
     data = request.get_json()
-    case_text = data.get("text", "")
+    if not data or "text" not in data:
+        return jsonify({"error": "الرجاء إرسال نص للتحليل"}), 400
+    text = data["text"]
 
-    # إرسال النص إلى نموذج DeepSeek
-    completion = client.chat.completions.create(
-        model="deepseek/deepseek-chat-v3-0324:free",
-        messages=[
-            {"role": "user", "content": f"ما الحكم القانوني أو نوع القضية في النص التالي: {case_text}"}
-        ]
-    )
+    print("Received text:", text)  # إضافة طباعة للنص المرسل
 
-    result = completion.choices[0].message.content
-    return jsonify({"result": result})
+    if not text.strip():
+        return jsonify({"error": "النص المرسل فارغ"}), 400
+
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(
+            f"اقرأ هذا النص وحلله أو لخصه:\n{text}"
+        )
+        return jsonify({"result": response.text})
+
+    except Exception as e:
+        return jsonify({"error": f"حدث خطأ أثناء التحليل: {e}"}), 500
+
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
